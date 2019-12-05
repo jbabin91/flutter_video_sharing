@@ -41,5 +41,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Need to access your camera to capture a picture and record a video.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Need to access your microphone to record a video.</string>
+	<key>PublitioAPIKey</key>
+	<string>$(PUBLITIO_KEY)</string>
+	<key>PublitioAPISecret</key>
+	<string>$(PUBLITIO_SECRET)</string>
 </dict>
 </plist>
