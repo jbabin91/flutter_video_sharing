@@ -2,9 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_publitio/flutter_publitio.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:transparent_image/transparent_image.dart';
+
+import 'apis/firebase_provider.dart';
+import 'apis/publitio_provider.dart';
+import 'chewie_player.dart';
+import 'video_info.dart';
 
 void main() => runApp(MyApp());
 
@@ -32,33 +36,19 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<String> _videos = <String>[];
-
+  List<VideoInfo> _videos = <VideoInfo>[];
   bool _imagePickerActive = false;
   bool _uploading = false;
 
   @override
   void initState() {
-    configurePublitio();
+    PublitioProvider.configurePublitio();
+    FirebaseProvider.listenToVideos((newVideos) {
+      setState(() {
+        _videos = newVideos;
+      });
+    });
     super.initState();
-  }
-
-  static configurePublitio() async {
-    await DotEnv().load('.env');
-    await FlutterPublitio.configure(
-        DotEnv().env['PUBLITIO_KEY'], DotEnv().env['PUBLITIO_SECRET']);
-  }
-
-  static _uploadVideo(videoFile) async {
-    print('starting upload');
-    final uploadOptions = {
-      "privacy": "1",
-      "option_download": "1",
-      "option_transform": "1"
-    };
-    final response =
-        await FlutterPublitio.uploadFile(videoFile.path, uploadOptions);
-    return response;
   }
 
   void _takeVideo() async {
@@ -76,13 +66,11 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     try {
-      final response = await _uploadVideo(videoFile);
-      setState(() {
-        _videos.add(response["url_preview"]);
-      });
+      final video = await PublitioProvider.uploadVideo(videoFile);
+      await FirebaseProvider.saveVideo(video);
     } on PlatformException catch (e) {
-      print('${e.code}, ${e.message}');
-      // result = 'Platform Exception: ${e.code} ${e.details}';
+      print('${e.code}: ${e.message}');
+      //result = 'Platform Exception: ${e.code} ${e.details}';
     } finally {
       setState(() {
         _uploading = false;
@@ -97,30 +85,61 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: _videos.length,
-          itemBuilder: (BuildContext context, int index) {
-            return Card(
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                child: Center(
-                  child: Text(_videos[index]),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+          child: ListView.builder(
+              padding: const EdgeInsets.all(8),
+              itemCount: _videos.length,
+              itemBuilder: (BuildContext context, int index) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) {
+                          return ChewiePlayer(
+                            video: _videos[index],
+                          );
+                        },
+                      ),
+                    );
+                  },
+                  child: Card(
+                    child: new Container(
+                      padding: new EdgeInsets.all(10.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Stack(
+                            alignment: Alignment.center,
+                            children: <Widget>[
+                              Center(child: CircularProgressIndicator()),
+                              Center(
+                                child: ClipRRect(
+                                  borderRadius: new BorderRadius.circular(8.0),
+                                  child: FadeInImage.memoryNetwork(
+                                    placeholder: kTransparentImage,
+                                    image: _videos[index].thumbnailUrl,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Padding(padding: EdgeInsets.only(top: 20.0)),
+                          ListTile(
+                            title: Text(_videos[index].videoUrl),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              })),
       floatingActionButton: FloatingActionButton(
-        onPressed: _takeVideo,
-        tooltip: 'Take Video',
-        child: _uploading
-            ? CircularProgressIndicator(
-                valueColor: new AlwaysStoppedAnimation<Color>(Colors.white),
-              )
-            : Icon(Icons.add),
-      ),
+          child: _uploading
+              ? CircularProgressIndicator(
+                  valueColor: new AlwaysStoppedAnimation<Color>(Colors.white),
+                )
+              : Icon(Icons.add),
+          onPressed: _takeVideo),
     );
   }
 }

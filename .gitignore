@@ -203,4 +203,6 @@ output.json
 # End of https://www.gitignore.io/api/android
 ios/Config.xcconfig
 
-.env
+*.env
+**/GoogleService-Info.plist
+**/google-services.json
