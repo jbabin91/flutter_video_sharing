@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_publitio/flutter_publitio.dart';
 import 'package:image_picker/image_picker.dart';
@@ -34,6 +35,31 @@ class _MyHomePageState extends State<MyHomePage> {
   List<String> _videos = <String>[];
 
   bool _imagePickerActive = false;
+  bool _uploading = false;
+
+  @override
+  void initState() {
+    configurePublitio();
+    super.initState();
+  }
+
+  static configurePublitio() async {
+    await DotEnv().load('.env');
+    await FlutterPublitio.configure(
+        DotEnv().env['PUBLITIO_KEY'], DotEnv().env['PUBLITIO_SECRET']);
+  }
+
+  static _uploadVideo(videoFile) async {
+    print('starting upload');
+    final uploadOptions = {
+      "privacy": "1",
+      "option_download": "1",
+      "option_transform": "1"
+    };
+    final response =
+        await FlutterPublitio.uploadFile(videoFile.path, uploadOptions);
+    return response;
+  }
 
   void _takeVideo() async {
     if (_imagePickerActive) return;
@@ -46,8 +72,22 @@ class _MyHomePageState extends State<MyHomePage> {
     if (videoFile == null) return;
 
     setState(() {
-      _videos.add(videoFile.path);
+      _uploading = true;
     });
+
+    try {
+      final response = await _uploadVideo(videoFile);
+      setState(() {
+        _videos.add(response["url_preview"]);
+      });
+    } on PlatformException catch (e) {
+      print('${e.code}, ${e.message}');
+      // result = 'Platform Exception: ${e.code} ${e.details}';
+    } finally {
+      setState(() {
+        _uploading = false;
+      });
+    }
   }
 
   @override
@@ -75,7 +115,11 @@ class _MyHomePageState extends State<MyHomePage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _takeVideo,
         tooltip: 'Take Video',
-        child: Icon(Icons.add),
+        child: _uploading
+            ? CircularProgressIndicator(
+                valueColor: new AlwaysStoppedAnimation<Color>(Colors.white),
+              )
+            : Icon(Icons.add),
       ),
     );
   }

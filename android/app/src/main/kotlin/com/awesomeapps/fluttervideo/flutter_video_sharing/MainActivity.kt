@@ -1,4 +1,4 @@
-package com.awesomeapps.fluttervideo.flutter_video_sharing
+package com.awesomeapps.fluttervideosharing
 
 import androidx.annotation.NonNull;
 import io.flutter.embedding.android.FlutterActivity
